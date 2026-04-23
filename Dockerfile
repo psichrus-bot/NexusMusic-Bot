@@ -1,26 +1,21 @@
 FROM node:22-slim
 
-# Устанавливаем FFmpeg и Python3
+# Устанавливаем FFmpeg, Python3 и socat (для TCP-туннеля)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
     python3-pip \
+    socat \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем символическую ссылку для python
 RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Устанавливаем yt-dlp через pip
 RUN pip3 install --no-cache-dir yt-dlp --break-system-packages
 
-# Создаем директорию приложения
 WORKDIR /app
-
-# Копируем ВСЕ файлы сначала
 COPY . .
-
-# Только потом устанавливаем зависимости
 RUN npm install --production
 
-# Запускаем бота
-CMD ["node", "--no-deprecation", "index.js"]
+# Запускаем туннель socat в фоне и затем стартуем бота
+CMD socat UDP4-LISTEN:50000,fork TCP4:localhost:50000 & \
+    socat UDP4-LISTEN:50001,fork TCP4:localhost:50001 & \
+    node --no-deprecation index.js
